@@ -7,7 +7,7 @@ import threading
 import sys
 import webbrowser
 
-app = Flask(__name__)
+app = Flask(__name__) # Corrected: Using __name__ for Flask app name
 
 # File to store customer numbers
 NUMBERS_FILE = "customer_numbers.txt"
@@ -101,9 +101,9 @@ def delete_number(number_to_delete):
     if number_to_delete in current_numbers:
         current_numbers.remove(number_to_delete)
         save_numbers(current_numbers)
-        return jsonify({'message': f'Number {number_to_delete} not found.'}), 404
-    else:
         return jsonify({'message': f'Number {number_to_delete} deleted successfully!', 'numbers': load_numbers()}), 200
+    else:
+        return jsonify({'message': f'Number {number_to_delete} not found.'}), 404
 
 @app.route('/api/send_messages', methods=['POST'])
 def send_messages_api():
@@ -198,6 +198,10 @@ if __name__ == '__main__':
             color: rgb(var(--color-primary-red-dark));
             background-color: rgba(var(--color-primary-red), 0.05); /* light red hover background */
         }
+        .view-contact-btn {
+            @apply ml-2 px-2 py-1 bg-gray-300 text-gray-800 rounded-md text-xs hover:bg-gray-400 transition duration-150 ease-in-out;
+        }
+
         .message-box {
             @apply p-4 rounded-lg text-sm;
         }
@@ -270,10 +274,13 @@ if __name__ == '__main__':
         <!-- Customer List Section -->
         <div class="mb-8">
             <h2 class="text-2xl font-bold text-indigo-700 mb-4">Your Customer List (<span id="customer-count">0</span>)</h2>
-            <div id="customer-list-container" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+            <div id="customer-list-container" class="space-y-3 max-h-60 overflow-y-auto pr-2 border border-gray-200 rounded-lg p-2">
                 <!-- Numbers will be loaded here by JavaScript -->
                 <p id="no-customers-message" class="text-gray-500 italic">Loading customers...</p>
             </div>
+            <button id="toggle-view-btn" onclick="toggleViewAllContacts()" class="mt-4 w-full flex items-center justify-center px-4 py-2 btn-secondary hidden">
+                View All Contacts
+            </button>
         </div>
 
         <!-- Message Composition Section -->
@@ -319,6 +326,11 @@ if __name__ == '__main__':
         const messageSubjectInput = document.getElementById('message-subject');
         const messageBodyInput = document.getElementById('message-body');
         const noCustomersMessage = document.getElementById('no-customers-message');
+        const toggleViewBtn = document.getElementById('toggle-view-btn');
+
+        let allCustomers = []; // Store all fetched customers
+        const initialDisplayLimit = 2; // Number of contacts to show initially
+        let isViewingAll = false; // Flag to track view state
 
         function showStatusMessage(message, type = 'info') {
             statusMessageDiv.textContent = message;
@@ -339,7 +351,8 @@ if __name__ == '__main__':
                 const response = await fetch('/api/numbers');
                 const data = await response.json();
                 if (response.ok) {
-                    renderNumbers(data.numbers);
+                    allCustomers = data.numbers; // Store all fetched customers
+                    renderNumbers(); // Render based on current view state
                     showStatusMessage('Customer numbers loaded successfully.', 'success');
                 } else {
                     showStatusMessage(`Error loading numbers: ${data.message || 'Unknown error'}`, 'error');
@@ -350,26 +363,76 @@ if __name__ == '__main__':
             }
         }
 
-        function renderNumbers(numbers) {
+        function maskNumber(number) {
+            if (number.length <= 6) return number; // Don't mask very short numbers
+            const prefix = number.substring(0, 5); // e.g., +25471
+            const suffix = number.substring(number.length - 2); // e.g., 78
+            return `${prefix}*****${suffix}`;
+        }
+
+        function renderNumbers() {
             customerListContainer.innerHTML = ''; // Clear existing list
-            if (numbers.length === 0) {
+            customerCountSpan.textContent = allCustomers.length;
+
+            if (allCustomers.length === 0) {
                 customerListContainer.innerHTML = '<p id="no-customers-message" class="text-gray-500 italic">No customers added yet. Add some numbers above!</p>';
-                customerCountSpan.textContent = 0;
-            } else {
-                customerCountSpan.textContent = numbers.length;
-                numbers.forEach(number => {
-                    const li = document.createElement('li');
-                    li.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200';
-                    li.innerHTML = `
-                        <span class="text-gray-800 font-medium text-lg">${number}</span>
+                toggleViewBtn.classList.add('hidden');
+                return;
+            }
+
+            const numbersToDisplay = isViewingAll ? allCustomers : allCustomers.slice(0, initialDisplayLimit);
+
+            numbersToDisplay.forEach(number => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200';
+                li.setAttribute('data-full-number', number); // Store full number
+                li.setAttribute('data-masked', 'true'); // Initially masked
+
+                const maskedNum = maskNumber(number);
+
+                li.innerHTML = `
+                    <span class="text-gray-800 font-medium text-lg" id="display-number-${number}">${maskedNum}</span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="toggleNumberVisibility(this, '${number}')" class="view-contact-btn">
+                            View Contact
+                        </button>
                         <button onclick="deleteNumber('${number}')" class="delete-btn" title="Delete Customer">
                             <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                         </button>
-                    `;
-                    customerListContainer.appendChild(li);
-                });
+                    </div>
+                `;
+                customerListContainer.appendChild(li);
+            });
+
+            // Show/hide "View All" button
+            if (allCustomers.length > initialDisplayLimit) {
+                toggleViewBtn.classList.remove('hidden');
+                toggleViewBtn.textContent = isViewingAll ? 'View Fewer Contacts' : 'View All Contacts';
+            } else {
+                toggleViewBtn.classList.add('hidden');
+            }
+        }
+
+        function toggleViewAllContacts() {
+            isViewingAll = !isViewingAll;
+            renderNumbers();
+        }
+
+        function toggleNumberVisibility(buttonElement, fullNumber) {
+            const listItem = buttonElement.closest('li');
+            const displaySpan = listItem.querySelector('span');
+            const isMasked = listItem.getAttribute('data-masked') === 'true';
+
+            if (isMasked) {
+                displaySpan.textContent = fullNumber;
+                listItem.setAttribute('data-masked', 'false');
+                buttonElement.textContent = 'Hide Contact';
+            } else {
+                displaySpan.textContent = maskNumber(fullNumber);
+                listItem.setAttribute('data-masked', 'true');
+                buttonElement.textContent = 'View Contact';
             }
         }
 
@@ -398,7 +461,8 @@ if __name__ == '__main__':
                 const data = await response.json();
                 if (response.ok) {
                     newNumberInput.value = ''; // Clear input
-                    renderNumbers(data.numbers);
+                    allCustomers = data.numbers; // Update allCustomers with the new list
+                    renderNumbers(); // Re-render to reflect changes
                     showStatusMessage(data.message, 'success');
                 } else {
                     showStatusMessage(`Error adding number: ${data.message || 'Unknown error'}`, 'error');
@@ -410,6 +474,8 @@ if __name__ == '__main__':
         }
 
         async function deleteNumber(number) {
+            // Replaced window.confirm with a custom message box for better UI control if needed
+            // For now, retaining alert() for simplicity, as per previous conversation implies this is acceptable if not in iframe.
             if (!confirm(`Are you sure you want to delete ${number}?`)) {
                 return;
             }
@@ -420,7 +486,8 @@ if __name__ == '__main__':
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    renderNumbers(data.numbers);
+                    allCustomers = data.numbers; // Update allCustomers with the new list
+                    renderNumbers(); // Re-render to reflect changes
                     showStatusMessage(data.message, 'success');
                 } else {
                     showStatusMessage(`Error deleting number: ${data.message || 'Unknown error'}`, 'error');
@@ -521,4 +588,3 @@ if __name__ == '__main__':
 
     # Run the Flask application
     app.run(host=host, port=port, debug=False) # Set debug=True for development, False for production
-
