@@ -3,3 +3,18 @@ Time: 14:13
 Phone Number: +254700579704
 Message: Subject: Testing whatsapp BulksenderHello this is a test message , DO'NT MIND'
 --------------------
+Date: 27/6/2025
+Time: 15:22
+Phone Number: +254112283101
+Message: Subject: testtest
+--------------------
+Date: 27/6/2025
+Time: 15:22
+Phone Number: +254700579704
+Message: Subject: testtest
+--------------------
+Date: 27/6/2025
+Time: 15:23
+Phone Number: +254796540935
+Message: Subject: testtest
+--------------------

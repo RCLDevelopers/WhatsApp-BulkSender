@@ -131,7 +131,7 @@ if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
 
     # Define the HTML content for index.html
-    html_content = """
+    html_content = r"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -233,7 +233,7 @@ if __name__ == '__main__':
         }
 
         .bg-purple-50 { /* Used for Message Composition Section */
-            background-color: rgba(var(--color-primary-red), 0.05); /* Very light red background */
+            background-color: rgba(var(--color-primary-red-light), 0.3); /* Stronger pink background for compose section */
         }
         .text-purple-700 { /* Used for Message Composition heading */
             color: rgb(var(--color-success-green-dark)); /* Darker green for Message Composition heading */
@@ -242,7 +242,7 @@ if __name__ == '__main__':
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-6 flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-2xl w-full">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full"> <!-- Changed max-w-2xl to max-w-3xl -->
         <h1 class="text-4xl font-extrabold text-center text-indigo-800 mb-8 tracking-tight">
             WhatsApp Message Sender
         </h1>
@@ -288,13 +288,14 @@ if __name__ == '__main__':
             <h2 class="text-2xl font-bold text-purple-700 mb-4">Compose Your Message</h2>
             <div class="mb-4">
                 <label for="message-subject" class="block text-sm font-medium text-gray-700 mb-2">
-                    Subject (Optional)
+                    Subject <span class="text-red-500">*</span>
                 </label>
                 <input
                     type="text"
                     id="message-subject"
                     placeholder="e.g., Special Offer for You!"
                     class="input-field"
+                    required
                 />
             </div>
             <div class="mb-6">
@@ -306,6 +307,7 @@ if __name__ == '__main__':
                     rows="5"
                     placeholder="Type your message here..."
                     class="input-field resize-y"
+                    required
                 ></textarea>
             </div>
             <button onclick="sendMessage()" class="w-full flex items-center justify-center px-6 py-3 btn-primary">
@@ -502,6 +504,12 @@ if __name__ == '__main__':
             const subject = messageSubjectInput.value.trim();
             const body = messageBodyInput.value.trim();
 
+            // Validate both subject and body are not empty
+            if (!subject) {
+                showStatusMessage('Message subject cannot be empty. Please enter a subject.', 'error');
+                return;
+            }
+
             if (!body) {
                 showStatusMessage('Message body cannot be empty. Please enter your message.', 'error');
                 return;
@@ -556,7 +564,7 @@ if __name__ == '__main__':
     </script>
 </body>
 </html>
-    """
+"""
 
     # Write the HTML content to index.html in the templates directory
     with open(os.path.join('templates', 'index.html'), 'w') as f:

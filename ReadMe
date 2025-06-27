@@ -1,0 +1,165 @@
+````markdown
+# WhatsApp Message Sender with Web UI
+
+This project provides a convenient and interactive web-based interface to send WhatsApp messages to your customers directly from your local machine. It leverages a Python Flask backend for managing customer contacts and initiating the message sending process, combined with a user-friendly HTML/CSS/JavaScript frontend for interaction.
+
+## ✨ Features
+
+* **Customer Number Management**: Easily add and delete WhatsApp customer numbers.
+
+* **Secure Contact Display**: Customer phone numbers are masked by default, with an option to reveal the full number for privacy.
+
+* **Collapsible Contact List**: View the first two contacts and expand to see all, keeping the interface clean.
+
+* **Intuitive Message Composer**: Compose your message with a subject and body using dynamic, well-styled input fields. Both fields are required for sending.
+
+* **Automated Sending**: Initiate sending messages to all added contacts directly via WhatsApp Web automation.
+
+* **Responsive Web UI**: Designed to be usable across different screen sizes.
+
+## ⚙️ How It Works
+
+This application consists of two main parts:
+
+1.  **Python Flask Backend (`app.py`)**:
+
+    * Serves the static web files (HTML, CSS, JavaScript).
+
+    * Manages customer WhatsApp numbers, storing them persistently in a local text file (`customer_numbers.txt`).
+
+    * Provides API endpoints for adding, deleting, and fetching customer numbers.
+
+    * Handles the request to send messages by invoking the `pywhatkit` library in a **background thread**. This ensures your web interface remains responsive while messages are being sent.
+
+2.  **Web Frontend (`templates/index.html`)**:
+
+    * Built with HTML, styled using [Tailwind CSS](https://tailwindcss.com/), and made interactive with vanilla JavaScript.
+
+    * Communicates with the Flask backend via API calls to perform operations like adding/deleting contacts and initiating message sends.
+
+**Important Note on Sending Messages**:
+This script utilizes the `pywhatkit` library to automate WhatsApp Web. This means:
+
+* **Browser Interaction**: When you initiate message sending, your default web browser will open and navigate to WhatsApp Web.
+
+* **WhatsApp Web Login**: You **must be logged in to WhatsApp Web** in your browser for the messages to be sent successfully.
+
+* **Direct Sending**: Messages are *actually sent* through your browser, not just links generated.
+
+* **Delays**: A short delay is introduced between messages to ensure stability and reliability with WhatsApp Web automation.
+
+* **Terms of Service**: Be mindful of WhatsApp's [Terms of Service](https://www.whatsapp.com/legal/terms-of-service) regarding automated messaging. Excessive or unsolicited use may lead to your account being flagged or temporarily banned. Use this tool responsibly and with consent from your customers.
+
+## 🚀 Setup and Installation
+
+Follow these steps to get the WhatsApp Message Sender up and running on your local machine.
+
+### Prerequisites
+
+* **Python 3.x**: Make sure you have Python installed. You can download it from [python.org](https://www.python.org/downloads/).
+
+* **pip**: Python's package installer, usually comes with Python.
+
+### Installation Steps
+
+1.  **Clone the Repository (or create the files manually)**:
+    If you're getting this from a GitHub repository, clone it:
+
+    ```bash
+    git clone [https://github.com/RCLDevelopers/WhatsApp-BulkSender.git](https://github.com/RCLDevelopers/WhatsApp-BulkSender.git) # Assuming this is your repo name
+    cd WhatsApp-BulkSender
+    ```
+
+    If you're setting it up manually, create a folder (e.g., `WhatsApp-BulkSender`), then create `app.py` directly inside it. Also, create a `templates` subfolder and an `index.html` file inside it.
+
+2.  **Install Required Python Packages**:
+    Open your terminal or command prompt and run:
+
+    ```bash
+    pip install Flask pywhatkit
+    ```
+
+3.  **Prepare `app.py`**:
+    Ensure your `app.py` file contains the Python code provided.
+
+4.  **Prepare `templates/index.html`**:
+    Inside the `templates` folder, create `index.html` and paste the HTML content provided into it.
+
+## ▶️ How to Run
+
+1.  **Navigate to the project directory**:
+
+    ```bash
+    cd /path/to/your/WhatsApp-BulkSender/
+    ```
+
+2.  **Run the Flask application**:
+
+    ```bash
+    python app.py
+    ```
+
+    You will see output in your terminal indicating that the Flask server is running. It will also provide a URL (e.g., `http://127.0.0.1:5000`).
+
+3.  **Access the Web UI**:
+
+    * Open your web browser.
+
+    * Navigate to the URL displayed in your terminal (e.g., `http://127.0.0.1:5000`). The script will also attempt to open it automatically for you.
+
+## 💡 Usage Guidelines
+
+Once the web interface is open in your browser:
+
+### Interface Overview
+
+Below is a screenshot of the application's user interface, showing the key sections for adding contacts, managing the customer list, and composing messages.
+
+![WhatsApp Message Sender UI](App.png)
+
+1.  **Add Customer Numbers**:
+
+    * In the "Add Customer Number" section, enter a WhatsApp number (including the country code, e.g., `+254712345678`).
+
+    * Click the "Add" button.
+
+    * You'll see a success message, and the number will appear in "Your Customer List."
+
+2.  **Manage Your Customer List**:
+
+    * "Your Customer List" will show your added contacts.
+
+    * Numbers are masked by default (e.g., `+25471*****78`) for privacy.
+
+    * Click "View Contact" to reveal the full number, or "Hide Contact" to mask it again.
+
+    * The list initially shows only 2 contacts. Click "View All Contacts" to expand the list, or "View Fewer Contacts" to collapse it.
+
+    * Click the trashcan icon next to any number to delete it from your list.
+
+3.  **Compose Your Message**:
+
+    * In the "Compose Your Message" section, fill in the "Subject" and "Message Body" fields. Both are required.
+
+    * These fields are designed to be dynamic and should expand as you type.
+
+4.  **Send Messages**:
+
+    * Ensure you are **logged into WhatsApp Web** in your default browser *before* clicking "Send Messages to All Customers."
+
+    * Click the "Send Messages to All Customers" button.
+
+    * A status message will appear, indicating that the sending process has started in the background.
+
+    * Your browser will open new tabs/windows for each contact, and `pywhatkit` will automate typing and sending the message. **Keep your browser active during this process.**
+
+## 🙏 Credits
+
+Developed by **Rashid**.
+
+## 📞 Contact & Projects
+
+Feel free to connect for personal or business projects!
+
+My Company Website: [Zangtics Digital](https://zangticsdigital.com/)
+````
