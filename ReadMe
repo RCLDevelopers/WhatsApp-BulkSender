@@ -1,384 +1,117 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Guide: WhatsApp Message Sender</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* Tailwind gray-50 */
-        }
-        .tab {
-            cursor: pointer;
-            padding: 0.75rem 1.5rem;
-            border-bottom: 2px solid transparent;
-            transition: all 0.3s ease;
-            color: #4b5563; /* Tailwind gray-600 */
-        }
-        .tab.active {
-            color: #1d4ed8; /* Tailwind blue-700 */
-            border-bottom-color: #1d4ed8;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .feature-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-        .checklist-item.completed {
-            text-decoration: line-through;
-            color: #6b7280; /* Tailwind gray-500 */
-        }
-        .checklist-item.completed .icon-circle {
-             background-color: #10b981; /* Tailwind emerald-500 */
-             border-color: #10b981;
-        }
-        .copy-btn {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .code-block:hover .copy-btn {
-            opacity: 1;
-        }
-    </style>
-</head>
-<body class="text-gray-800">
+# 📲 WhatsApp Message Sender
 
-    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+An interactive, user-friendly web application to send WhatsApp messages to your customers directly from your local machine. Powered by a Python Flask backend and a sleek, modern frontend.
 
-        <!-- Header -->
-        <header class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-2">WhatsApp Message Sender</h1>
-            <p class="text-lg text-gray-600">An interactive guide to the application.</p>
-        </header>
+![App Screenshot](https://placehold.co/600x450/e2e8f0/334155?text=App+Screenshot)
 
-        <!-- Navigation Tabs -->
-        <nav class="flex items-center justify-center border-b border-gray-200 mb-8">
-            <div id="tabs" class="flex flex-wrap justify-center">
-                <div class="tab active" data-tab="overview">Overview</div>
-                <div class="tab" data-tab="features">Features</div>
-                <div class="tab" data-tab="how-it-works">How It Works</div>
-                <div class="tab" data-tab="setup">Setup Guide</div>
-                <div class="tab" data-tab="demo">Live Demo</div>
-            </div>
-        </nav>
+---
 
-        <!-- Main Content -->
-        <main>
-            <!-- Overview Tab -->
-            <section id="overview" class="tab-content active">
-                <div class="bg-white p-6 md:p-10 rounded-xl shadow-sm">
-                    <h2 class="text-3xl font-bold mb-6 text-center">Your Personal Campaign Tool</h2>
-                    <div class="grid md:grid-cols-2 gap-8 items-center">
-                        <div class="text-gray-700 space-y-4 text-base leading-relaxed">
-                            <p>This project provides a convenient and interactive web-based interface to send WhatsApp messages to your customers directly from your local machine.</p>
-                            <p>It leverages a Python Flask backend for managing customer contacts and initiating the message sending process, combined with a user-friendly frontend for easy interaction.</p>
-                            <div class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                                <h4 class="font-semibold text-blue-800">Important Note on Automation</h4>
-                                <p class="text-sm text-blue-700 mt-1">This tool automates WhatsApp Web. You must be logged in on your browser for it to work. Please use responsibly and be mindful of WhatsApp's Terms of Service.</p>
-                            </div>
-                        </div>
-                        <div class="flex justify-center">
-                             <img src="https://placehold.co/600x450/e2e8f0/334155?text=App+Screenshot"
-                                  onerror="this.onerror=null;this.src='https://placehold.co/600x450/e2e8f0/334155?text=App+Screenshot+Here';"
-                                  alt="Screenshot of the WhatsApp Message Sender application" 
-                                  class="rounded-lg shadow-xl border-4 border-white">
-                        </div>
-                    </div>
-                </div>
-            </section>
+## 🚀 Overview
 
-            <!-- Features Tab -->
-            <section id="features" class="tab-content">
-                 <div class="bg-white p-6 md:p-10 rounded-xl shadow-sm">
-                    <h2 class="text-3xl font-bold mb-8 text-center">Core Features</h2>
-                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div class="feature-card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-xl mb-2">📞 Customer Management</h3>
-                            <p class="text-gray-600">Easily add and delete WhatsApp customer numbers through the web interface.</p>
-                        </div>
-                        <div class="feature-card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-xl mb-2">🔒 Secure Display</h3>
-                            <p class="text-gray-600">Contact numbers are masked by default for privacy, with an option to reveal them.</p>
-                        </div>
-                        <div class="feature-card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-xl mb-2">📋 Collapsible List</h3>
-                            <p class="text-gray-600">The contact list is neatly organized, showing a preview with an option to expand.</p>
-                        </div>
-                        <div class="feature-card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-xl mb-2">✍️ Intuitive Composer</h3>
-                            <p class="text-gray-600">Compose your message with a subject and body using clean, responsive input fields.</p>
-                        </div>
-                        <div class="feature-card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-xl mb-2">🚀 Automated Sending</h3>
-                            <p class="text-gray-600">Initiate sending messages to all contacts directly via WhatsApp Web automation.</p>
-                        </div>
-                        <div class="feature-card bg-gray-50 p-6 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-xl mb-2">📱 Responsive UI</h3>
-                            <p class="text-gray-600">The interface is designed to be fully usable across desktop and mobile devices.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+**WhatsApp Message Sender** provides a convenient way to manage contacts and send campaign messages in bulk via WhatsApp Web.  
+- **Frontend:** Modern, responsive UI for easy interaction.
+- **Backend:** Python Flask handles logic, contact management, and message automation.
+- **Automation:** Uses [`pywhatkit`](https://pypi.org/project/pywhatkit/) to automate sending WhatsApp messages.
 
-            <!-- How It Works Tab -->
-            <section id="how-it-works" class="tab-content">
-                <div class="bg-white p-6 md:p-10 rounded-xl shadow-sm">
-                    <h2 class="text-3xl font-bold mb-8 text-center">Application Architecture</h2>
-                    <div class="space-y-6">
-                        <div class="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
-                            <div class="p-4 bg-green-100 border-2 border-green-200 rounded-lg shadow-sm w-full md:w-1/4">
-                                <h4 class="font-bold text-green-800">Your Browser</h4>
-                                <p class="text-sm text-green-700">(Frontend UI)</p>
-                            </div>
-                            <div class="text-4xl font-light text-gray-400 transform md:rotate-0 rotate-90">↔️</div>
-                            <div class="p-4 bg-blue-100 border-2 border-blue-200 rounded-lg shadow-sm w-full md:w-1/4">
-                                <h4 class="font-bold text-blue-800">Python Flask Server</h4>
-                                <p class="text-sm text-blue-700">(Backend Logic)</p>
-                            </div>
-                            <div class="text-4xl font-light text-gray-400 transform md:rotate-0 rotate-90">↔️</div>
-                            <div class="p-4 bg-teal-100 border-2 border-teal-200 rounded-lg shadow-sm w-full md:w-1/4">
-                                <h4 class="font-bold text-teal-800">WhatsApp Web</h4>
-                                <p class="text-sm text-teal-700">(Automation)</p>
-                            </div>
-                        </div>
-                        <div class="text-center text-gray-600 max-w-2xl mx-auto">
-                            <p>You interact with the frontend in your browser. Actions are sent to the Flask server, which manages your contact list and uses the `pywhatkit` library to automate sending messages through WhatsApp Web in a separate browser tab.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+> **Note:**  
+> This tool automates WhatsApp Web. You must be logged in on your browser for it to work.
+> **Use responsibly and be mindful of WhatsApp’s Terms of Service.**
 
-            <!-- Setup Guide Tab -->
-            <section id="setup" class="tab-content">
-                <div class="bg-white p-6 md:p-10 rounded-xl shadow-sm">
-                    <h2 class="text-3xl font-bold mb-8 text-center">Interactive Setup Guide</h2>
-                    <div class="max-w-3xl mx-auto space-y-6">
-                        <div class="checklist-item flex items-start gap-4 p-4 rounded-lg border">
-                            <div class="icon-circle mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold text-white transition-all">✓</div>
-                            <div>
-                                <h4 class="font-bold text-lg">Prerequisite: Install Python 3</h4>
-                                <p class="text-gray-600 text-sm">Ensure Python 3.x is installed on your system. You can download it from <a href="https://python.org" target="_blank" class="text-blue-600 hover:underline">python.org</a>.</p>
-                                <label class="mt-2 flex items-center text-sm cursor-pointer"><input type="checkbox" class="h-4 w-4 rounded mr-2">Mark as complete</label>
-                            </div>
-                        </div>
-                        <div class="checklist-item flex items-start gap-4 p-4 rounded-lg border">
-                            <div class="icon-circle mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold text-white transition-all">✓</div>
-                            <div>
-                                <h4 class="font-bold text-lg">Clone or Download the Code</h4>
-                                <p class="text-gray-600 text-sm mb-2">Get the project files onto your local machine.</p>
-                                <div class="code-block relative bg-gray-800 text-white p-3 rounded-md text-sm">
-                                    <pre><code>git clone https://github.com/RCLDevelopers/WhatsApp-BulkSender.git</code></pre>
-                                    <button class="copy-btn absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-xs px-2 py-1 rounded">Copy</button>
-                                </div>
-                                <label class="mt-2 flex items-center text-sm cursor-pointer"><input type="checkbox" class="h-4 w-4 rounded mr-2">Mark as complete</label>
-                            </div>
-                        </div>
-                        <div class="checklist-item flex items-start gap-4 p-4 rounded-lg border">
-                           <div class="icon-circle mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold text-white transition-all">✓</div>
-                            <div>
-                                <h4 class="font-bold text-lg">Install Required Packages</h4>
-                                <p class="text-gray-600 text-sm mb-2">Install Flask and pywhatkit using pip.</p>
-                                <div class="code-block relative bg-gray-800 text-white p-3 rounded-md text-sm">
-                                    <pre><code>pip install Flask pywhatkit</code></pre>
-                                    <button class="copy-btn absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-xs px-2 py-1 rounded">Copy</button>
-                                </div>
-                                <label class="mt-2 flex items-center text-sm cursor-pointer"><input type="checkbox" class="h-4 w-4 rounded mr-2">Mark as complete</label>
-                            </div>
-                        </div>
-                         <div class="checklist-item flex items-start gap-4 p-4 rounded-lg border">
-                            <div class="icon-circle mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center font-bold text-white transition-all">✓</div>
-                            <div>
-                                <h4 class="font-bold text-lg">Run the Application</h4>
-                                <p class="text-gray-600 text-sm mb-2">Start the Flask server from your terminal. Make sure you're in the project directory.</p>
-                                <div class="code-block relative bg-gray-800 text-white p-3 rounded-md text-sm">
-                                    <pre><code>python app.py</code></pre>
-                                    <button class="copy-btn absolute top-2 right-2 bg-gray-600 hover:bg-gray-500 text-xs px-2 py-1 rounded">Copy</button>
-                                </div>
-                                 <p class="text-gray-600 text-sm mt-2">Then, open <a href="http://127.0.0.1:5000" target="_blank" class="text-blue-600 hover:underline">http://127.0.0.1:5000</a> in your browser.</p>
-                                <label class="mt-2 flex items-center text-sm cursor-pointer"><input type="checkbox" class="h-4 w-4 rounded mr-2">Mark as complete</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
+---
 
-            <!-- Live Demo Tab -->
-            <section id="demo" class="tab-content">
-                 <div class="bg-white p-6 md:p-10 rounded-xl shadow-sm">
-                    <h2 class="text-3xl font-bold mb-2 text-center">Live UI Demo</h2>
-                    <p class="text-center text-gray-500 mb-8">This is a non-functional demo. Interact with the UI to see how it works!</p>
-                    
-                    <div class="max-w-2xl mx-auto">
-                        <div id="demo-status-message" class="hidden mb-6 p-4 rounded-lg text-sm"></div>
+## ✨ Features
 
-                        <div class="mb-8 p-6 bg-orange-50 rounded-lg shadow-inner">
-                            <h3 class="text-xl font-bold text-orange-800 mb-4">Add Customer Number</h3>
-                            <div class="flex space-x-3">
-                                <input type="text" id="demo-new-number" placeholder="Enter number with country code" class="flex-1 block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500">
-                                <button id="demo-add-btn" class="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Add</button>
-                            </div>
-                        </div>
+- **📞 Customer Management:** Add or delete WhatsApp numbers through the web interface.
+- **🔒 Secure Display:** Contact numbers are masked for privacy, with an option to reveal.
+- **📋 Collapsible List:** Preview and expand customer contacts.
+- **✍️ Intuitive Composer:** Compose messages with subject and body fields.
+- **🚀 Automated Sending:** Initiate message sending to all contacts via WhatsApp Web.
+- **📱 Responsive UI:** Works beautifully on both desktop and mobile.
 
-                        <div class="mb-8">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">Your Customer List (<span id="demo-customer-count">0</span>)</h3>
-                            <div id="demo-customer-list" class="space-y-3">
-                                <p class="text-gray-500 italic">No customers added yet.</p>
-                            </div>
-                        </div>
+---
 
-                        <div class="p-6 bg-rose-50 rounded-lg shadow-inner">
-                             <h3 class="text-xl font-bold text-rose-800 mb-4">Compose Your Message</h3>
-                             <div class="space-y-4">
-                                <div>
-                                    <label for="demo-subject" class="block text-sm font-medium text-gray-700 mb-1">Subject <span class="text-red-500">*</span></label>
-                                    <input type="text" id="demo-subject" placeholder="e.g., Special Offer for You!" class="block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500">
-                                </div>
-                                 <div>
-                                    <label for="demo-body" class="block text-sm font-medium text-gray-700 mb-1">Message Body <span class="text-red-500">*</span></label>
-                                    <textarea id="demo-body" rows="4" placeholder="Type your message here..." class="block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-blue-500 focus:ring-blue-500"></textarea>
-                                </div>
-                                <button id="demo-send-btn" class="w-full py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-semibold">Send Messages to All Customers</button>
-                             </div>
-                        </div>
-                    </div>
-                 </div>
-            </section>
-        </main>
+## 🛠️ How It Works
 
-        <!-- Footer -->
-        <footer class="text-center mt-16 pt-8 border-t border-gray-200">
-            <p class="text-gray-600">Developed by <span class="font-semibold">Rashid</span></p>
-            <p class="text-gray-500 text-sm mt-1">Open for personal and business projects. Visit <a href="https://zangticsdigital.com/" target="_blank" class="text-blue-600 hover:underline">Zangtics Digital</a>.</p>
-        </footer>
+1. **You (Browser Frontend):**  
+   Manage contacts and compose messages on the web UI.
 
-    </div>
+2. **Python Flask Server (Backend):**  
+   Handles your actions, manages contacts, and orchestrates sending.
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Tab navigation
-            const tabs = document.getElementById('tabs');
-            const tabContents = document.querySelectorAll('.tab-content');
-            
-            tabs.addEventListener('click', function(e) {
-                if (e.target.classList.contains('tab')) {
-                    const tabName = e.target.dataset.tab;
+3. **WhatsApp Web (Automation):**  
+   The backend uses `pywhatkit` to open WhatsApp Web and send messages automatically.
 
-                    tabs.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-                    e.target.classList.add('active');
+**Workflow Diagram:**
 
-                    tabContents.forEach(content => {
-                        content.classList.remove('active');
-                        if (content.id === tabName) {
-                            content.classList.add('active');
-                        }
-                    });
-                }
-            });
+```
+[ Your Browser ]
+        ⬄
+[ Flask Server ]
+        ⬄
+[ WhatsApp Web ]
+```
 
-            // Setup guide interactivity
-            const checklistItems = document.querySelectorAll('.checklist-item');
-            checklistItems.forEach(item => {
-                const checkbox = item.querySelector('input[type="checkbox"]');
-                checkbox.addEventListener('change', () => {
-                    item.classList.toggle('completed', checkbox.checked);
-                });
-            });
-            
-            const copyButtons = document.querySelectorAll('.copy-btn');
-            copyButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const code = btn.previousElementSibling.querySelector('code').innerText;
-                    navigator.clipboard.writeText(code).then(() => {
-                        btn.innerText = 'Copied!';
-                        setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
-                    });
-                });
-            });
+You interact with the frontend; the Flask backend processes and automates sending through WhatsApp Web in a browser tab.
 
-            // Live Demo interactivity
-            const demoStatus = document.getElementById('demo-status-message');
-            const demoAddBtn = document.getElementById('demo-add-btn');
-            const demoNewNumberInput = document.getElementById('demo-new-number');
-            const demoCustomerList = document.getElementById('demo-customer-list');
-            const demoCustomerCount = document.getElementById('demo-customer-count');
-            const demoSendBtn = document.getElementById('demo-send-btn');
-            
-            let demoContacts = [];
+---
 
-            const showDemoStatus = (message, type) => {
-                demoStatus.textContent = message;
-                demoStatus.className = 'mb-6 p-4 rounded-lg text-sm';
-                if (type === 'success') demoStatus.classList.add('bg-green-100', 'text-green-800');
-                else if (type === 'error') demoStatus.classList.add('bg-red-100', 'text-red-800');
-                else demoStatus.classList.add('bg-blue-100', 'text-blue-800');
-                demoStatus.classList.remove('hidden');
-                setTimeout(() => demoStatus.classList.add('hidden'), 4000);
-            };
+## 🧑‍💻 Setup Guide
 
-            const renderDemoContacts = () => {
-                demoCustomerList.innerHTML = '';
-                demoCustomerCount.textContent = demoContacts.length;
+### 1. Prerequisite: Install Python 3
 
-                if (demoContacts.length === 0) {
-                    demoCustomerList.innerHTML = '<p class="text-gray-500 italic">No customers added yet.</p>';
-                    return;
-                }
-                
-                demoContacts.forEach((contact, index) => {
-                    const maskedNumber = contact.length > 6 ? `${contact.substring(0, 5)}*****${contact.substring(contact.length - 2)}` : contact;
-                    const li = document.createElement('div');
-                    li.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg border';
-                    li.innerHTML = `
-                        <span class="font-medium text-gray-800">${maskedNumber}</span>
-                        <button data-index="${index}" class="text-red-500 hover:text-red-700 text-2xl font-light" title="Delete">&times;</button>
-                    `;
-                    demoCustomerList.appendChild(li);
-                });
-            };
+Download and install Python 3.x from [python.org](https://python.org).
 
-            demoAddBtn.addEventListener('click', () => {
-                const number = demoNewNumberInput.value.trim();
-                if (!number || !number.startsWith('+') || number.length < 10) {
-                    showDemoStatus('Please enter a valid number with country code (e.g., +254712345678).', 'error');
-                    return;
-                }
-                demoContacts.push(number);
-                demoNewNumberInput.value = '';
-                renderDemoContacts();
-                showDemoStatus('Contact added successfully!', 'success');
-            });
+---
 
-            demoCustomerList.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') {
-                    const index = e.target.dataset.index;
-                    demoContacts.splice(index, 1);
-                    renderDemoContacts();
-                    showDemoStatus('Contact removed.', 'info');
-                }
-            });
+### 2. Clone the Repository
 
-            demoSendBtn.addEventListener('click', () => {
-                if (demoContacts.length === 0) {
-                     showDemoStatus('Error: Please add at least one contact before sending.', 'error');
-                     return;
-                }
-                showDemoStatus('This is a demo! In the real app, messages would start sending now.', 'info');
-            });
+```bash
+git clone https://github.com/RCLDevelopers/WhatsApp-BulkSender.git
+cd WhatsApp-BulkSender
+```
 
-        });
-    </script>
-</body>
-</html>
+---
+
+### 3. Install Required Packages
+
+```bash
+pip install Flask pywhatkit
+```
+
+---
+
+### 4. Run the Application
+
+```bash
+python app.py
+```
+
+Open your browser and go to [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+---
+
+## 🖥️ Live Demo (UI Only)
+
+> **Interactive demo available in the project web UI. Try adding contacts and composing messages!**
+
+---
+
+## ⚠️ Disclaimer
+
+- This project automates WhatsApp Web for convenience.
+- **Do not use for spam or in violation of WhatsApp’s Terms of Service.**
+- You must be logged into WhatsApp Web in your browser for the automation to work.
+
+---
+
+## 🙋‍♂️ Developed By
+
+**Rashid**  
+Open for personal and business projects.  
+Visit [Zangtics Digital](https://zangticsdigital.com/)
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](LICENSE) for details.
