@@ -2,7 +2,7 @@
 
 An interactive, user-friendly web application to send WhatsApp messages to your customers directly from your local machine. Powered by a Python Flask backend and a sleek, modern frontend.
 
-![App Screenshot](https://placehold.co/600x450/e2e8f0/334155?text=App+Screenshot)
+![App Screenshot](App.png)
 
 ---
 
