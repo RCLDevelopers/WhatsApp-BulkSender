@@ -46,12 +46,16 @@
             @apply bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition duration-150 ease-in-out shadow-sm;
         }
         .input-field {
-            @apply block w-full rounded-md border-gray-300 shadow-sm p-3 transition duration-150 ease-in-out;
+            @apply block w-full rounded-md border-gray-300 shadow-sm p-4 transition duration-150 ease-in-out; /* Changed p-3 to p-4 */
             border-color: rgba(var(--color-primary-red), 0.3); /* Slightly red tint */
         }
         .input-field:focus {
             border-color: rgb(var(--color-success-green)); /* Green focus border */
             box-shadow: 0 0 0 1px rgb(var(--color-success-green)), 0 0 0 3px rgba(var(--color-success-green), 0.2); /* Green ring */
+        }
+        .input-field::placeholder { /* Added specific placeholder styling */
+            color: #6b7280; /* Tailwind gray-500 equivalent for better visibility */
+            opacity: 1; /* Ensures consistency across browsers */
         }
         .delete-btn {
             color: rgb(var(--color-primary-red));
@@ -109,7 +113,7 @@
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-6 flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full"> <!-- Changed max-w-2xl to max-w-3xl -->
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full"> <!-- max-w-3xl for wider layout -->
         <h1 class="text-4xl font-extrabold text-center text-indigo-800 mb-8 tracking-tight">
             WhatsApp Message Sender
         </h1>
@@ -153,6 +157,28 @@
         <!-- Message Composition Section -->
         <div class="mb-8 p-6 bg-purple-50 rounded-lg shadow-inner">
             <h2 class="text-2xl font-bold text-purple-700 mb-4">Compose Your Message</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="scheduled-date" class="block text-sm font-medium text-gray-700 mb-2">
+                        Schedule Date (Optional)
+                    </label>
+                    <input
+                        type="date"
+                        id="scheduled-date"
+                        class="input-field"
+                    />
+                </div>
+                <div>
+                    <label for="scheduled-time" class="block text-sm font-medium text-gray-700 mb-2">
+                        Schedule Time (Optional)
+                    </label>
+                    <input
+                        type="time"
+                        id="scheduled-time"
+                        class="input-field"
+                    />
+                </div>
+            </div>
             <div class="mb-4">
                 <label for="message-subject" class="block text-sm font-medium text-gray-700 mb-2">
                     Subject <span class="text-red-500">*</span>
@@ -171,20 +197,29 @@
                 </label>
                 <textarea
                     id="message-body"
-                    rows="5"
+                    rows="8" 
                     placeholder="Type your message here..."
                     class="input-field resize-y"
                     required
                 ></textarea>
             </div>
-            <button onclick="sendMessage()" class="w-full flex items-center justify-center px-6 py-3 btn-primary">
+            <button onclick="scheduleOrSendMessage()" class="w-full flex items-center justify-center px-6 py-3 btn-primary">
                 <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                 </svg>
-                Send Messages to All Customers
+                Schedule Message / Send Now
             </button>
         </div>
+
+        <!-- Scheduled Messages Section -->
+        <div class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Scheduled Messages (<span id="scheduled-count">0</span>)</h2>
+            <div id="scheduled-messages-container" class="space-y-3 max-h-60 overflow-y-auto pr-2 border border-gray-200 rounded-lg p-2">
+                <p id="no-scheduled-messages-message" class="text-gray-500 italic">No messages scheduled.</p>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -194,19 +229,23 @@
         const newNumberInput = document.getElementById('new-number');
         const messageSubjectInput = document.getElementById('message-subject');
         const messageBodyInput = document.getElementById('message-body');
+        const scheduledDateInput = document.getElementById('scheduled-date');
+        const scheduledTimeInput = document.getElementById('scheduled-time');
         const noCustomersMessage = document.getElementById('no-customers-message');
         const toggleViewBtn = document.getElementById('toggle-view-btn');
+        const scheduledMessagesContainer = document.getElementById('scheduled-messages-container');
+        const scheduledCountSpan = document.getElementById('scheduled-count');
+        const noScheduledMessagesMessage = document.getElementById('no-scheduled-messages-message');
 
-        let allCustomers = []; // Store all fetched customers
-        const initialDisplayLimit = 2; // Number of contacts to show initially
-        let isViewingAll = false; // Flag to track view state
+        let allCustomers = [];
+        const initialDisplayLimit = 2;
+        let isViewingAll = false;
 
         function showStatusMessage(message, type = 'info') {
             statusMessageDiv.textContent = message;
-            statusMessageDiv.className = 'mb-6 message-box'; // Reset classes
+            statusMessageDiv.className = 'mb-6 message-box';
             statusMessageDiv.classList.add(`message-${type}`);
             statusMessageDiv.classList.remove('hidden');
-            // Hide after a few seconds unless it's an error or persistent info
             if (type !== 'error') {
                 setTimeout(() => {
                     statusMessageDiv.classList.add('hidden');
@@ -220,8 +259,8 @@
                 const response = await fetch('/api/numbers');
                 const data = await response.json();
                 if (response.ok) {
-                    allCustomers = data.numbers; // Store all fetched customers
-                    renderNumbers(); // Render based on current view state
+                    allCustomers = data.numbers;
+                    renderNumbers();
                     showStatusMessage('Customer numbers loaded successfully.', 'success');
                 } else {
                     showStatusMessage(`Error loading numbers: ${data.message || 'Unknown error'}`, 'error');
@@ -233,14 +272,14 @@
         }
 
         function maskNumber(number) {
-            if (number.length <= 6) return number; // Don't mask very short numbers
-            const prefix = number.substring(0, 5); // e.g., +25471
-            const suffix = number.substring(number.length - 2); // e.g., 78
+            if (number.length <= 6) return number;
+            const prefix = number.substring(0, 5);
+            const suffix = number.substring(number.length - 2);
             return `${prefix}*****${suffix}`;
         }
 
         function renderNumbers() {
-            customerListContainer.innerHTML = ''; // Clear existing list
+            customerListContainer.innerHTML = '';
             customerCountSpan.textContent = allCustomers.length;
 
             if (allCustomers.length === 0) {
@@ -254,8 +293,8 @@
             numbersToDisplay.forEach(number => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200';
-                li.setAttribute('data-full-number', number); // Store full number
-                li.setAttribute('data-masked', 'true'); // Initially masked
+                li.setAttribute('data-full-number', number);
+                li.setAttribute('data-masked', 'true');
 
                 const maskedNum = maskNumber(number);
 
@@ -275,7 +314,6 @@
                 customerListContainer.appendChild(li);
             });
 
-            // Show/hide "View All" button
             if (allCustomers.length > initialDisplayLimit) {
                 toggleViewBtn.classList.remove('hidden');
                 toggleViewBtn.textContent = isViewingAll ? 'View Fewer Contacts' : 'View All Contacts';
@@ -312,26 +350,24 @@
                 return;
             }
 
-            // Basic client-side validation
             const cleanedNumber = number.replace(/[\s-()]/g, '');
             if (!cleanedNumber.startsWith('+') || cleanedNumber.length < 6 || !cleanedNumber.substring(1).match(/^\d+$/)) {
                 showStatusMessage('Invalid number format. Must start with "+" and be followed by digits (e.g., +254712345678).', 'error');
                 return;
             }
 
-
             showStatusMessage('Adding number...', 'info');
             try {
                 const response = await fetch('/api/numbers', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ number: cleanedNumber }) // Send the cleaned number
+                    body: JSON.stringify({ number: cleanedNumber })
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    newNumberInput.value = ''; // Clear input
-                    allCustomers = data.numbers; // Update allCustomers with the new list
-                    renderNumbers(); // Re-render to reflect changes
+                    newNumberInput.value = '';
+                    allCustomers = data.numbers;
+                    renderNumbers();
                     showStatusMessage(data.message, 'success');
                 } else {
                     showStatusMessage(`Error adding number: ${data.message || 'Unknown error'}`, 'error');
@@ -343,8 +379,6 @@
         }
 
         async function deleteNumber(number) {
-            // Replaced window.confirm with a custom message box for better UI control if needed
-            // For now, retaining alert() for simplicity, as per previous conversation implies this is acceptable if not in iframe.
             if (!confirm(`Are you sure you want to delete ${number}?`)) {
                 return;
             }
@@ -355,8 +389,8 @@
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    allCustomers = data.numbers; // Update allCustomers with the new list
-                    renderNumbers(); // Re-render to reflect changes
+                    allCustomers = data.numbers;
+                    renderNumbers();
                     showStatusMessage(data.message, 'success');
                 } else {
                     showStatusMessage(`Error deleting number: ${data.message || 'Unknown error'}`, 'error');
@@ -367,22 +401,21 @@
             }
         }
 
-        async function sendMessage() {
+        async function scheduleOrSendMessage() {
             const subject = messageSubjectInput.value.trim();
             const body = messageBodyInput.value.trim();
+            const scheduledDate = scheduledDateInput.value;
+            const scheduledTime = scheduledTimeInput.value;
 
-            // Validate both subject and body are not empty
             if (!subject) {
                 showStatusMessage('Message subject cannot be empty. Please enter a subject.', 'error');
                 return;
             }
-
             if (!body) {
                 showStatusMessage('Message body cannot be empty. Please enter your message.', 'error');
                 return;
             }
 
-            // Fetch current numbers before sending to ensure we have the latest list
             let currentNumbers = [];
             try {
                 const response = await fetch('/api/numbers');
@@ -404,30 +437,114 @@
                 return;
             }
 
-            showStatusMessage('Initiating message sending in the background. Please monitor your browser for WhatsApp Web activity.', 'info');
+            const payload = {
+                subject: subject,
+                body: body,
+                scheduled_date: scheduledDate,
+                scheduled_time: scheduledTime
+            };
+
+            showStatusMessage('Processing message...', 'info');
             try {
-                const response = await fetch('/api/send_messages', {
+                const response = await fetch('/api/schedule_message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subject, body })
+                    body: JSON.stringify(payload)
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    // Clear message fields after successful initiation
                     messageSubjectInput.value = '';
                     messageBodyInput.value = '';
+                    scheduledDateInput.value = '';
+                    scheduledTimeInput.value = '';
                     showStatusMessage(data.message, 'success');
+                    fetchScheduledMessages(); // Refresh scheduled messages list
                 } else {
-                    showStatusMessage(`Error sending messages: ${data.message || 'Unknown error'}`, 'error');
+                    showStatusMessage(`Error: ${data.message || 'Unknown error'}`, 'error');
                 }
             } catch (error) {
-                console.error('Error initiating send messages:', error);
-                showStatusMessage('Network error or server unavailable while initiating message send.', 'error');
+                console.error('Error scheduling/sending messages:', error);
+                showStatusMessage('Network error or server unavailable. Check console for details.', 'error');
             }
         }
 
-        // Load numbers when the page loads
-        document.addEventListener('DOMContentLoaded', fetchNumbers);
+        async function fetchScheduledMessages() {
+            showStatusMessage('Loading scheduled messages...', 'info');
+            try {
+                const response = await fetch('/api/scheduled_messages');
+                const data = await response.json();
+                if (response.ok) {
+                    renderScheduledMessages(data.scheduled_messages);
+                    showStatusMessage('Scheduled messages loaded.', 'success');
+                } else {
+                    showStatusMessage(`Error loading scheduled messages: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching scheduled messages:', error);
+                showStatusMessage('Network error or server unavailable while loading scheduled messages.', 'error');
+            }
+        }
+
+        function renderScheduledMessages(messages) {
+            scheduledMessagesContainer.innerHTML = '';
+            scheduledCountSpan.textContent = messages.length;
+
+            if (messages.length === 0) {
+                scheduledMessagesContainer.innerHTML = '<p id="no-scheduled-messages-message" class="text-gray-500 italic">No messages scheduled.</p>';
+                return;
+            }
+
+            messages.forEach(job => {
+                const li = document.createElement('li');
+                li.className = 'flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-200';
+                
+                const sendTime = new Date(job.send_time);
+                const formattedTime = sendTime.toLocaleString(); // Format date and time for display
+
+                li.innerHTML = `
+                    <div class="flex-grow">
+                        <p class="font-bold text-gray-800">To: ${maskNumber(job.number)}</p>
+                        <p class="text-sm text-gray-700">Subject: ${job.subject}</p>
+                        <p class="text-xs text-gray-500">Scheduled: ${formattedTime}</p>
+                    </div>
+                    <div class="mt-2 md:mt-0 md:ml-4 flex-shrink-0">
+                        <button onclick="cancelScheduledMessage('${job.id}')" class="px-3 py-1 text-red-600 bg-red-100 rounded-md hover:bg-red-200 text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+                scheduledMessagesContainer.appendChild(li);
+            });
+        }
+
+        async function cancelScheduledMessage(jobId) {
+            if (!confirm('Are you sure you want to cancel this scheduled message?')) {
+                return;
+            }
+            showStatusMessage(`Cancelling message (ID: ${jobId})...`, 'info');
+            try {
+                const response = await fetch(`/api/scheduled_messages/${jobId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showStatusMessage(data.message, 'success');
+                    fetchScheduledMessages(); // Refresh list after cancellation
+                } else {
+                    showStatusMessage(`Error cancelling message: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error cancelling message:', error);
+                showStatusMessage('Network error or server unavailable while cancelling message.', 'error');
+            }
+        }
+
+
+        // Load numbers and scheduled messages when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchNumbers();
+            fetchScheduledMessages();
+        });
     </script>
 </body>
 </html>

@@ -6,11 +6,21 @@ import os
 import threading
 import sys
 import webbrowser
+import uuid
+import json
+from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
 
-app = Flask(__name__) # Corrected: Using __name__ for Flask app name
+app = Flask(__name__)
 
 # File to store customer numbers
 NUMBERS_FILE = "customer_numbers.txt"
+# File to store scheduled jobs persistently
+SCHEDULED_JOBS_FILE = "scheduled_jobs.json"
+
+# Initialize scheduler
+scheduler = BackgroundScheduler(daemon=True)
 
 # --- Utility Functions for Number Management ---
 def load_numbers(filename=NUMBERS_FILE):
@@ -22,44 +32,89 @@ def load_numbers(filename=NUMBERS_FILE):
                 number = line.strip()
                 if number:
                     numbers.append(number)
-    return sorted(list(set(numbers))) # Load unique numbers and sort them
+    return sorted(list(set(numbers)))
 
 def save_numbers(numbers, filename=NUMBERS_FILE):
     """Saves WhatsApp numbers to a text file."""
     with open(filename, "w") as f:
-        for number in sorted(list(set(numbers))): # Save unique and sorted numbers
+        for number in sorted(list(set(numbers))):
             f.write(number + "\n")
 
-# --- Background Message Sending Function ---
-def _send_messages_in_background(customer_numbers, subject, body):
+# --- Utility Functions for Scheduled Jobs Persistence ---
+def load_scheduled_jobs():
+    """Loads scheduled jobs from a JSON file."""
+    if os.path.exists(SCHEDULED_JOBS_FILE):
+        with open(SCHEDULED_JOBS_FILE, "r") as f:
+            try:
+                jobs_data = json.load(f)
+                # Convert string timestamps back to datetime objects
+                for job in jobs_data:
+                    if 'send_time' in job and isinstance(job['send_time'], str):
+                        job['send_time'] = datetime.fromisoformat(job['send_time'])
+                return jobs_data
+            except json.JSONDecodeError:
+                return []
+    return []
+
+def save_scheduled_jobs(jobs):
+    """Saves scheduled jobs to a JSON file."""
+    # Convert datetime objects to ISO format strings for JSON serialization
+    jobs_data_to_save = []
+    for job in jobs:
+        job_copy = job.copy()
+        if 'send_time' in job_copy and isinstance(job_copy['send_time'], datetime):
+            job_copy['send_time'] = job_copy['send_time'].isoformat()
+        jobs_data_to_save.append(job_copy)
+    
+    with open(SCHEDULED_JOBS_FILE, "w") as f:
+        json.dump(jobs_data_to_save, f, indent=4)
+
+def add_job_to_persistence(job_data):
+    """Adds a new job to the persistent storage."""
+    jobs = load_scheduled_jobs()
+    jobs.append(job_data)
+    save_scheduled_jobs(jobs)
+
+def remove_job_from_persistence(job_id):
+    """Removes a job from the persistent storage."""
+    jobs = load_scheduled_jobs()
+    jobs = [job for job in jobs if job['id'] != job_id]
+    save_scheduled_jobs(jobs)
+
+def update_job_status_in_persistence(job_id, status):
+    """Updates the status of a job in persistent storage."""
+    jobs = load_scheduled_jobs()
+    for job in jobs:
+        if job['id'] == job_id:
+            job['status'] = status
+            break
+    save_scheduled_jobs(jobs)
+
+# --- Message Sending Job Function (Called by Scheduler) ---
+def send_whatsapp_job(job_id, phone_number, subject, body):
     """
-    Sends WhatsApp messages in a separate thread using pywhatkit.
-    This function will interact with the browser.
+    Function executed by APScheduler to send a WhatsApp message.
+    Updates the job status in persistent storage after attempting to send.
     """
     full_message = ""
     if subject:
         full_message += f"Subject: {subject}\n\n"
     full_message += body
 
-    if not customer_numbers:
-        print("[BACKGROUND SENDER] No customer numbers to send messages to.")
-        return
-
-    print(f"[BACKGROUND SENDER] Starting to send messages to {len(customer_numbers)} customers...")
-    for i, number in enumerate(customer_numbers):
-        print(f"[BACKGROUND SENDER] Sending message to {number} ({i + 1}/{len(customer_numbers)})...")
-        try:
-            # sendwhatmsg_instantly opens browser and sends message immediately.
-            # wait_time: seconds to wait for WhatsApp Web to load
-            # tab_close: True to close the tab after sending
-            pywhatkit.sendwhatmsg_instantly(number, full_message, wait_time=20, tab_close=True)
-            print(f"[BACKGROUND SENDER] Message sent to {number}.")
-            time.sleep(5) # Small delay to prevent issues when sending to many numbers quickly
-        except Exception as e:
-            print(f"[BACKGROUND SENDER ERROR] Failed to send message to {number}: {e}")
-            print("[BACKGROUND SENDER ERROR] Please ensure you are logged into WhatsApp Web in your browser and your internet connection is stable.")
-    print("[BACKGROUND SENDER] All message sending attempts completed.")
-
+    print(f"[SCHEDULED SENDER] Attempting to send message (Job ID: {job_id}) to {phone_number}...")
+    try:
+        # pywhatkit.sendwhatmsg_instantly directly opens browser without waiting for specific time within minute
+        pywhatkit.sendwhatmsg_instantly(phone_number, full_message, wait_time=20, tab_close=True)
+        print(f"[SCHEDULED SENDER] Message (Job ID: {job_id}) sent successfully to {phone_number}.")
+        update_job_status_in_persistence(job_id, 'sent')
+    except Exception as e:
+        print(f"[SCHEDULED SENDER ERROR] Failed to send message (Job ID: {job_id}) to {phone_number}: {e}")
+        print("[SCHEDULED SENDER ERROR] Please ensure WhatsApp Web is logged in.")
+        update_job_status_in_persistence(job_id, f'failed: {str(e)}')
+    finally:
+        # Optionally, remove job from scheduler's active jobs after completion/failure
+        # If the job is one-off ('date' trigger), APScheduler automatically removes it after execution.
+        pass
 
 # --- Flask Routes ---
 @app.route('/')
@@ -81,14 +136,12 @@ def handle_numbers():
         if not new_number:
             return jsonify({'message': 'Number cannot be empty.'}), 400
 
-        # Basic validation for WhatsApp numbers (starts with +, followed by digits)
-        # Allows for spaces and dashes for user input, then cleans it
         cleaned_number = new_number.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
         if not cleaned_number.startswith('+') or not cleaned_number[1:].isdigit() or len(cleaned_number) < 6:
             return jsonify({'message': 'Invalid number format. Must start with "+" and be followed by digits (e.g., +254712345678).'}), 400
 
         if cleaned_number in current_numbers:
-            return jsonify({'message': f'Number {cleaned_number} already exists.'}), 409 # Conflict
+            return jsonify({'message': f'Number {cleaned_number} already exists.'}), 409
 
         current_numbers.append(cleaned_number)
         save_numbers(current_numbers)
@@ -105,32 +158,133 @@ def delete_number(number_to_delete):
     else:
         return jsonify({'message': f'Number {number_to_delete} not found.'}), 404
 
-@app.route('/api/send_messages', methods=['POST'])
-def send_messages_api():
-    """API endpoint to initiate message sending."""
+@app.route('/api/schedule_message', methods=['POST'])
+def schedule_message_api():
+    """API endpoint to schedule a message or send immediately."""
     data = request.json
     subject = data.get('subject', '').strip()
     body = data.get('body', '').strip()
-    customer_numbers = load_numbers() # Get the latest list of numbers
+    scheduled_date_str = data.get('scheduled_date', '').strip()
+    scheduled_time_str = data.get('scheduled_time', '').strip()
+    
+    customer_numbers = load_numbers()
 
     if not customer_numbers:
         return jsonify({'message': 'No customer numbers available to send messages to. Please add some first.'}), 400
+    if not subject:
+        return jsonify({'message': 'Message subject cannot be empty.'}), 400
     if not body:
         return jsonify({'message': 'Message body cannot be empty.'}), 400
 
-    # Start the message sending process in a new background thread
-    # This prevents the web request from hanging while messages are being sent
-    thread = threading.Thread(target=_send_messages_in_background, args=(customer_numbers, subject, body))
-    thread.start()
+    if scheduled_date_str and scheduled_time_str:
+        # Schedule for future
+        try:
+            combined_datetime_str = f"{scheduled_date_str} {scheduled_time_str}"
+            scheduled_datetime = datetime.fromisoformat(combined_datetime_str)
 
-    return jsonify({'message': 'Message sending initiated in the background. Please monitor your browser for WhatsApp Web activity.'}), 200
+            # Ensure the scheduled time is in the future
+            if scheduled_datetime <= datetime.now():
+                return jsonify({'message': 'Scheduled time must be in the future.'}), 400
+
+            for number in customer_numbers:
+                job_id = str(uuid.uuid4())
+                scheduler.add_job(
+                    send_whatsapp_job, 
+                    trigger=DateTrigger(run_date=scheduled_datetime),
+                    args=[job_id, number, subject, body], 
+                    id=job_id,
+                    misfire_grace_time=60 # seconds
+                )
+                add_job_to_persistence({
+                    'id': job_id,
+                    'number': number,
+                    'subject': subject,
+                    'body': body,
+                    'send_time': scheduled_datetime,
+                    'status': 'pending'
+                })
+            return jsonify({'message': 'Messages scheduled successfully!', 'type': 'scheduled'}), 200
+        except ValueError as e:
+            return jsonify({'message': f'Invalid date or time format: {e}'}), 400
+        except Exception as e:
+            return jsonify({'message': f'Failed to schedule messages: {e}'}), 500
+    else:
+        # Send immediately
+        # Use a new thread for immediate sending to avoid blocking the API response
+        send_thread = threading.Thread(target=_send_messages_immediately, args=(customer_numbers, subject, body))
+        send_thread.start()
+        return jsonify({'message': 'Immediate message sending initiated. Please monitor your browser.', 'type': 'immediate'}), 200
+
+def _send_messages_immediately(customer_numbers, subject, body):
+    """Helper function to send messages immediately in a separate thread."""
+    full_message = ""
+    if subject:
+        full_message += f"Subject: {subject}\n\n"
+    full_message += body
+    
+    for number in customer_numbers:
+        try:
+            pywhatkit.sendwhatmsg_instantly(number, full_message, wait_time=20, tab_close=True)
+            print(f"[IMMEDIATE SENDER] Message sent to {number}.")
+            time.sleep(5) # Small delay between messages
+        except Exception as e:
+            print(f"[IMMEDIATE SENDER ERROR] Failed to send message to {number}: {e}")
+
+@app.route('/api/scheduled_messages', methods=['GET'])
+def get_scheduled_messages_api():
+    """API endpoint to get list of scheduled messages."""
+    jobs = load_scheduled_jobs()
+    # Filter for pending and convert datetime to string for JSON serialization
+    pending_jobs = []
+    for job in jobs:
+        if job.get('status') == 'pending':
+            job_copy = job.copy()
+            if isinstance(job_copy['send_time'], datetime):
+                job_copy['send_time'] = job_copy['send_time'].isoformat()
+            pending_jobs.append(job_copy)
+    return jsonify({'scheduled_messages': pending_jobs}), 200
+
+@app.route('/api/scheduled_messages/<string:job_id>', methods=['DELETE'])
+def cancel_scheduled_message_api(job_id):
+    """API endpoint to cancel a specific scheduled message."""
+    try:
+        scheduler.remove_job(job_id)
+        remove_job_from_persistence(job_id)
+        return jsonify({'message': f'Scheduled message {job_id} cancelled successfully.'}), 200
+    except Exception as e:
+        return jsonify({'message': f'Failed to cancel job {job_id}: {e}'}), 404
+
+# --- Startup Logic ---
+def setup_scheduler():
+    """Loads pending jobs from persistence and re-adds them to the scheduler."""
+    jobs = load_scheduled_jobs()
+    for job_data in jobs:
+        if job_data.get('status') == 'pending':
+            try:
+                # Ensure send_time is datetime object
+                if isinstance(job_data['send_time'], str):
+                    job_data['send_time'] = datetime.fromisoformat(job_data['send_time'])
+
+                scheduler.add_job(
+                    send_whatsapp_job, 
+                    trigger=DateTrigger(run_date=job_data['send_time']),
+                    args=[job_data['id'], job_data['number'], job_data['subject'], job_data['body']], 
+                    id=job_data['id'],
+                    misfire_grace_time=60 # seconds
+                )
+                print(f"Re-added scheduled job {job_data['id']} for {job_data['send_time']}")
+            except Exception as e:
+                print(f"Error re-adding job {job_data['id']}: {e}. Skipping.")
+                # Mark as failed if cannot re-add (e.g., time passed while server was down)
+                update_job_status_in_persistence(job_data['id'], f'failed: re-add error ({str(e)})')
+
 
 # --- Main execution block ---
 if __name__ == '__main__':
     # Create the templates directory if it doesn't exist
     os.makedirs('templates', exist_ok=True)
 
-    # Define the HTML content for index.html
+    # Define the HTML content for index.html (updated below)
     html_content = r"""
 <!DOCTYPE html>
 <html lang="en">
@@ -179,12 +333,16 @@ if __name__ == '__main__':
             @apply bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition duration-150 ease-in-out shadow-sm;
         }
         .input-field {
-            @apply block w-full rounded-md border-gray-300 shadow-sm p-3 transition duration-150 ease-in-out;
+            @apply block w-full rounded-md border-gray-300 shadow-sm p-4 transition duration-150 ease-in-out; /* Changed p-3 to p-4 */
             border-color: rgba(var(--color-primary-red), 0.3); /* Slightly red tint */
         }
         .input-field:focus {
             border-color: rgb(var(--color-success-green)); /* Green focus border */
             box-shadow: 0 0 0 1px rgb(var(--color-success-green)), 0 0 0 3px rgba(var(--color-success-green), 0.2); /* Green ring */
+        }
+        .input-field::placeholder { /* Added specific placeholder styling */
+            color: #6b7280; /* Tailwind gray-500 equivalent for better visibility */
+            opacity: 1; /* Ensures consistency across browsers */
         }
         .delete-btn {
             color: rgb(var(--color-primary-red));
@@ -242,7 +400,7 @@ if __name__ == '__main__':
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-6 flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full"> <!-- Changed max-w-2xl to max-w-3xl -->
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full"> <!-- max-w-3xl for wider layout -->
         <h1 class="text-4xl font-extrabold text-center text-indigo-800 mb-8 tracking-tight">
             WhatsApp Message Sender
         </h1>
@@ -286,6 +444,28 @@ if __name__ == '__main__':
         <!-- Message Composition Section -->
         <div class="mb-8 p-6 bg-purple-50 rounded-lg shadow-inner">
             <h2 class="text-2xl font-bold text-purple-700 mb-4">Compose Your Message</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="scheduled-date" class="block text-sm font-medium text-gray-700 mb-2">
+                        Schedule Date (Optional)
+                    </label>
+                    <input
+                        type="date"
+                        id="scheduled-date"
+                        class="input-field"
+                    />
+                </div>
+                <div>
+                    <label for="scheduled-time" class="block text-sm font-medium text-gray-700 mb-2">
+                        Schedule Time (Optional)
+                    </label>
+                    <input
+                        type="time"
+                        id="scheduled-time"
+                        class="input-field"
+                    />
+                </div>
+            </div>
             <div class="mb-4">
                 <label for="message-subject" class="block text-sm font-medium text-gray-700 mb-2">
                     Subject <span class="text-red-500">*</span>
@@ -304,20 +484,29 @@ if __name__ == '__main__':
                 </label>
                 <textarea
                     id="message-body"
-                    rows="5"
+                    rows="8" 
                     placeholder="Type your message here..."
                     class="input-field resize-y"
                     required
                 ></textarea>
             </div>
-            <button onclick="sendMessage()" class="w-full flex items-center justify-center px-6 py-3 btn-primary">
+            <button onclick="scheduleOrSendMessage()" class="w-full flex items-center justify-center px-6 py-3 btn-primary">
                 <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                 </svg>
-                Send Messages to All Customers
+                Schedule Message / Send Now
             </button>
         </div>
+
+        <!-- Scheduled Messages Section -->
+        <div class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Scheduled Messages (<span id="scheduled-count">0</span>)</h2>
+            <div id="scheduled-messages-container" class="space-y-3 max-h-60 overflow-y-auto pr-2 border border-gray-200 rounded-lg p-2">
+                <p id="no-scheduled-messages-message" class="text-gray-500 italic">No messages scheduled.</p>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -327,19 +516,23 @@ if __name__ == '__main__':
         const newNumberInput = document.getElementById('new-number');
         const messageSubjectInput = document.getElementById('message-subject');
         const messageBodyInput = document.getElementById('message-body');
+        const scheduledDateInput = document.getElementById('scheduled-date');
+        const scheduledTimeInput = document.getElementById('scheduled-time');
         const noCustomersMessage = document.getElementById('no-customers-message');
         const toggleViewBtn = document.getElementById('toggle-view-btn');
+        const scheduledMessagesContainer = document.getElementById('scheduled-messages-container');
+        const scheduledCountSpan = document.getElementById('scheduled-count');
+        const noScheduledMessagesMessage = document.getElementById('no-scheduled-messages-message');
 
-        let allCustomers = []; // Store all fetched customers
-        const initialDisplayLimit = 2; // Number of contacts to show initially
-        let isViewingAll = false; // Flag to track view state
+        let allCustomers = [];
+        const initialDisplayLimit = 2;
+        let isViewingAll = false;
 
         function showStatusMessage(message, type = 'info') {
             statusMessageDiv.textContent = message;
-            statusMessageDiv.className = 'mb-6 message-box'; // Reset classes
+            statusMessageDiv.className = 'mb-6 message-box';
             statusMessageDiv.classList.add(`message-${type}`);
             statusMessageDiv.classList.remove('hidden');
-            // Hide after a few seconds unless it's an error or persistent info
             if (type !== 'error') {
                 setTimeout(() => {
                     statusMessageDiv.classList.add('hidden');
@@ -353,8 +546,8 @@ if __name__ == '__main__':
                 const response = await fetch('/api/numbers');
                 const data = await response.json();
                 if (response.ok) {
-                    allCustomers = data.numbers; // Store all fetched customers
-                    renderNumbers(); // Render based on current view state
+                    allCustomers = data.numbers;
+                    renderNumbers();
                     showStatusMessage('Customer numbers loaded successfully.', 'success');
                 } else {
                     showStatusMessage(`Error loading numbers: ${data.message || 'Unknown error'}`, 'error');
@@ -366,14 +559,14 @@ if __name__ == '__main__':
         }
 
         function maskNumber(number) {
-            if (number.length <= 6) return number; // Don't mask very short numbers
-            const prefix = number.substring(0, 5); // e.g., +25471
-            const suffix = number.substring(number.length - 2); // e.g., 78
+            if (number.length <= 6) return number;
+            const prefix = number.substring(0, 5);
+            const suffix = number.substring(number.length - 2);
             return `${prefix}*****${suffix}`;
         }
 
         function renderNumbers() {
-            customerListContainer.innerHTML = ''; // Clear existing list
+            customerListContainer.innerHTML = '';
             customerCountSpan.textContent = allCustomers.length;
 
             if (allCustomers.length === 0) {
@@ -387,8 +580,8 @@ if __name__ == '__main__':
             numbersToDisplay.forEach(number => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200';
-                li.setAttribute('data-full-number', number); // Store full number
-                li.setAttribute('data-masked', 'true'); // Initially masked
+                li.setAttribute('data-full-number', number);
+                li.setAttribute('data-masked', 'true');
 
                 const maskedNum = maskNumber(number);
 
@@ -408,7 +601,6 @@ if __name__ == '__main__':
                 customerListContainer.appendChild(li);
             });
 
-            // Show/hide "View All" button
             if (allCustomers.length > initialDisplayLimit) {
                 toggleViewBtn.classList.remove('hidden');
                 toggleViewBtn.textContent = isViewingAll ? 'View Fewer Contacts' : 'View All Contacts';
@@ -445,26 +637,24 @@ if __name__ == '__main__':
                 return;
             }
 
-            // Basic client-side validation
             const cleanedNumber = number.replace(/[\s-()]/g, '');
             if (!cleanedNumber.startsWith('+') || cleanedNumber.length < 6 || !cleanedNumber.substring(1).match(/^\d+$/)) {
                 showStatusMessage('Invalid number format. Must start with "+" and be followed by digits (e.g., +254712345678).', 'error');
                 return;
             }
 
-
             showStatusMessage('Adding number...', 'info');
             try {
                 const response = await fetch('/api/numbers', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ number: cleanedNumber }) // Send the cleaned number
+                    body: JSON.stringify({ number: cleanedNumber })
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    newNumberInput.value = ''; // Clear input
-                    allCustomers = data.numbers; // Update allCustomers with the new list
-                    renderNumbers(); // Re-render to reflect changes
+                    newNumberInput.value = '';
+                    allCustomers = data.numbers;
+                    renderNumbers();
                     showStatusMessage(data.message, 'success');
                 } else {
                     showStatusMessage(`Error adding number: ${data.message || 'Unknown error'}`, 'error');
@@ -476,8 +666,6 @@ if __name__ == '__main__':
         }
 
         async function deleteNumber(number) {
-            // Replaced window.confirm with a custom message box for better UI control if needed
-            // For now, retaining alert() for simplicity, as per previous conversation implies this is acceptable if not in iframe.
             if (!confirm(`Are you sure you want to delete ${number}?`)) {
                 return;
             }
@@ -488,8 +676,8 @@ if __name__ == '__main__':
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    allCustomers = data.numbers; // Update allCustomers with the new list
-                    renderNumbers(); // Re-render to reflect changes
+                    allCustomers = data.numbers;
+                    renderNumbers();
                     showStatusMessage(data.message, 'success');
                 } else {
                     showStatusMessage(`Error deleting number: ${data.message || 'Unknown error'}`, 'error');
@@ -500,22 +688,21 @@ if __name__ == '__main__':
             }
         }
 
-        async function sendMessage() {
+        async function scheduleOrSendMessage() {
             const subject = messageSubjectInput.value.trim();
             const body = messageBodyInput.value.trim();
+            const scheduledDate = scheduledDateInput.value;
+            const scheduledTime = scheduledTimeInput.value;
 
-            // Validate both subject and body are not empty
             if (!subject) {
                 showStatusMessage('Message subject cannot be empty. Please enter a subject.', 'error');
                 return;
             }
-
             if (!body) {
                 showStatusMessage('Message body cannot be empty. Please enter your message.', 'error');
                 return;
             }
 
-            // Fetch current numbers before sending to ensure we have the latest list
             let currentNumbers = [];
             try {
                 const response = await fetch('/api/numbers');
@@ -537,30 +724,114 @@ if __name__ == '__main__':
                 return;
             }
 
-            showStatusMessage('Initiating message sending in the background. Please monitor your browser for WhatsApp Web activity.', 'info');
+            const payload = {
+                subject: subject,
+                body: body,
+                scheduled_date: scheduledDate,
+                scheduled_time: scheduledTime
+            };
+
+            showStatusMessage('Processing message...', 'info');
             try {
-                const response = await fetch('/api/send_messages', {
+                const response = await fetch('/api/schedule_message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ subject, body })
+                    body: JSON.stringify(payload)
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    // Clear message fields after successful initiation
                     messageSubjectInput.value = '';
                     messageBodyInput.value = '';
+                    scheduledDateInput.value = '';
+                    scheduledTimeInput.value = '';
                     showStatusMessage(data.message, 'success');
+                    fetchScheduledMessages(); // Refresh scheduled messages list
                 } else {
-                    showStatusMessage(`Error sending messages: ${data.message || 'Unknown error'}`, 'error');
+                    showStatusMessage(`Error: ${data.message || 'Unknown error'}`, 'error');
                 }
             } catch (error) {
-                console.error('Error initiating send messages:', error);
-                showStatusMessage('Network error or server unavailable while initiating message send.', 'error');
+                console.error('Error scheduling/sending messages:', error);
+                showStatusMessage('Network error or server unavailable. Check console for details.', 'error');
             }
         }
 
-        // Load numbers when the page loads
-        document.addEventListener('DOMContentLoaded', fetchNumbers);
+        async function fetchScheduledMessages() {
+            showStatusMessage('Loading scheduled messages...', 'info');
+            try {
+                const response = await fetch('/api/scheduled_messages');
+                const data = await response.json();
+                if (response.ok) {
+                    renderScheduledMessages(data.scheduled_messages);
+                    showStatusMessage('Scheduled messages loaded.', 'success');
+                } else {
+                    showStatusMessage(`Error loading scheduled messages: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching scheduled messages:', error);
+                showStatusMessage('Network error or server unavailable while loading scheduled messages.', 'error');
+            }
+        }
+
+        function renderScheduledMessages(messages) {
+            scheduledMessagesContainer.innerHTML = '';
+            scheduledCountSpan.textContent = messages.length;
+
+            if (messages.length === 0) {
+                scheduledMessagesContainer.innerHTML = '<p id="no-scheduled-messages-message" class="text-gray-500 italic">No messages scheduled.</p>';
+                return;
+            }
+
+            messages.forEach(job => {
+                const li = document.createElement('li');
+                li.className = 'flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-200';
+                
+                const sendTime = new Date(job.send_time);
+                const formattedTime = sendTime.toLocaleString(); // Format date and time for display
+
+                li.innerHTML = `
+                    <div class="flex-grow">
+                        <p class="font-bold text-gray-800">To: ${maskNumber(job.number)}</p>
+                        <p class="text-sm text-gray-700">Subject: ${job.subject}</p>
+                        <p class="text-xs text-gray-500">Scheduled: ${formattedTime}</p>
+                    </div>
+                    <div class="mt-2 md:mt-0 md:ml-4 flex-shrink-0">
+                        <button onclick="cancelScheduledMessage('${job.id}')" class="px-3 py-1 text-red-600 bg-red-100 rounded-md hover:bg-red-200 text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                `;
+                scheduledMessagesContainer.appendChild(li);
+            });
+        }
+
+        async function cancelScheduledMessage(jobId) {
+            if (!confirm('Are you sure you want to cancel this scheduled message?')) {
+                return;
+            }
+            showStatusMessage(`Cancelling message (ID: ${jobId})...`, 'info');
+            try {
+                const response = await fetch(`/api/scheduled_messages/${jobId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showStatusMessage(data.message, 'success');
+                    fetchScheduledMessages(); // Refresh list after cancellation
+                } else {
+                    showStatusMessage(`Error cancelling message: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error cancelling message:', error);
+                showStatusMessage('Network error or server unavailable while cancelling message.', 'error');
+            }
+        }
+
+
+        // Load numbers and scheduled messages when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchNumbers();
+            fetchScheduledMessages();
+        });
     </script>
 </body>
 </html>
@@ -570,12 +841,25 @@ if __name__ == '__main__':
     with open(os.path.join('templates', 'index.html'), 'w') as f:
         f.write(html_content)
 
+    # Ensure scheduled_jobs.json exists
+    if not os.path.exists(SCHEDULED_JOBS_FILE):
+        with open(SCHEDULED_JOBS_FILE, 'w') as f:
+            json.dump([], f)
+
+    # Setup and start scheduler
+    setup_scheduler()
+    scheduler.start()
+
+    # Add a shutdown hook for the scheduler
+    import atexit
+    atexit.register(lambda: scheduler.shutdown(wait=False))
+
     # Determine the host and port for the Flask app
     host = '127.0.0.1'
     port = 5000
 
     print("\n-----------------------------------------------------------")
-    print("WhatsApp Message Sender Web UI")
+    print("WhatsApp Message Sender Web UI with Scheduler")
     print("-----------------------------------------------------------")
     print(f"To access the UI, open your web browser and go to:")
     print(f"👉 http://{host}:{port}")
@@ -583,8 +867,8 @@ if __name__ == '__main__':
     print("IMPORTANT:")
     print("1. Ensure you are logged into WhatsApp Web in your default browser.")
     print("2. The script will open new browser tabs/windows to send messages.")
-    print("3. Do not close this terminal window while using the UI.")
-    print("4. Sending messages will happen in the background, but the browser will be active.")
+    print("3. This terminal window MUST remain open for scheduled messages to be sent.")
+    print("4. Scheduled messages are processed by a background scheduler.")
     print("-----------------------------------------------------------")
 
     # Open the browser automatically (optional, for convenience)
@@ -595,4 +879,4 @@ if __name__ == '__main__':
         print("Please open the URL manually.")
 
     # Run the Flask application
-    app.run(host=host, port=port, debug=False) # Set debug=True for development, False for production
+    app.run(host=host, port=port, debug=False, use_reloader=False) # use_reloader=False is crucial for APScheduler

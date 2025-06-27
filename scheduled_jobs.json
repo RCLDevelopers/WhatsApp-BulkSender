@@ -1,0 +1,26 @@
+[
+    {
+        "id": "ab2c34a5-4835-4938-91b7-79c32b1e4be4",
+        "number": "+254112283101",
+        "subject": "Special Offer for You",
+        "body": "We are rolling out a new digital course, enroll ASAP!",
+        "send_time": "2025-06-28T10:10:00",
+        "status": "pending"
+    },
+    {
+        "id": "1fbfef67-dcf2-435a-9f9e-85562611aff3",
+        "number": "+254700579704",
+        "subject": "Special Offer for You",
+        "body": "We are rolling out a new digital course, enroll ASAP!",
+        "send_time": "2025-06-28T10:10:00",
+        "status": "pending"
+    },
+    {
+        "id": "e088c2fe-f2aa-4a83-99ae-5cd369019a27",
+        "number": "+254796540935",
+        "subject": "Special Offer for You",
+        "body": "We are rolling out a new digital course, enroll ASAP!",
+        "send_time": "2025-06-28T10:10:00",
+        "status": "pending"
+    }
+]
